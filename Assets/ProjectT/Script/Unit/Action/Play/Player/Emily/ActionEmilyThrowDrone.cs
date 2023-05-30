@@ -1,0 +1,102 @@
+﻿
+using System;
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+
+
+public class ActionEmilyThrowDrone : ActionSelectSkillBase
+{
+    [Header("Property")]
+    public float dist = 12.0f;
+    public float lookAtTargetAngle = 180.0f;
+
+    protected Unit m_target = null;
+    protected eAnimation mCurAni = eAnimation.None;
+
+
+    public override void Init(int tableId, List<GameTable.CharacterSkillPassive.Param> listAddCharSkillParam)
+    {
+        base.Init(tableId, listAddCharSkillParam);
+        actionCommand = eActionCommand.RushAttack;
+
+        conditionActionCommand = new eActionCommand[1];
+        conditionActionCommand[0] = eActionCommand.Defence;
+
+        extraCondition = new eActionCondition[1];
+        extraCondition[0] = eActionCondition.Grounded;
+
+        extraCancelCondition = new eActionCondition[3];
+        extraCancelCondition[0] = eActionCondition.UseSkill;
+        extraCancelCondition[1] = eActionCondition.UseQTE;
+        extraCancelCondition[2] = eActionCondition.UseUSkill;
+
+        superArmor = Unit.eSuperArmor.Lv1;
+
+        mCurAni = eAnimation.RushAttack2;
+
+        if (mValue1 > 0.0f)
+        {
+            List<Projectile> listPjt = m_owner.aniEvent.GetAllProjectile(eAnimation.RushAttack2);
+            for (int i = 0; i < listPjt.Count; i++)
+            {
+                listPjt[i].ProjectileAtkAttr = Projectile.EProjectileAtkAttr.UPPER;
+            }
+        }
+    }
+
+    public override void OnStart(IActionBaseParam param)
+    {
+        base.OnStart(param);
+        ShowSkillNames(m_data);
+
+        m_aniLength = m_owner.PlayAniImmediate(mCurAni);
+        m_aniCutFrameLength = m_owner.aniEvent.GetCutFrameLength(mCurAni);
+
+        if (FSaveData.Instance.AutoTargetingSkill)
+        {
+            m_target = World.Instance.EnemyMgr.GetNearestTarget(m_owner, dist, lookAtTargetAngle);
+            if (m_target)
+                m_owner.LookAtTarget(m_target.transform.position);
+        }
+        else
+        {
+            m_owner.cmptRotate.UpdateRotation(m_owner.Input.GetDirection(), true);
+        }
+    }
+
+    public override IEnumerator UpdateAction()
+    {
+        //WaitForFixedUpdate waitForFixedUpdate = new WaitForFixedUpdate();
+        while (m_endUpdate == false)
+        {
+            m_checkTime += m_owner.fixedDeltaTime;
+            if (m_checkTime >= m_aniLength)
+                m_endUpdate = true;
+
+            yield return mWaitForFixedUpdate;
+        }
+    }
+
+    public override void OnCancel()
+    {
+        base.OnCancel();
+        m_owner.StopStepForward();
+    }
+
+    public override float GetAtkRange()
+    {
+        AniEvent.sEvent evt = m_owner.aniEvent.GetFirstAttackEvent( mCurAni );
+        if (evt == null)
+        {
+            Debug.LogError(mCurAni.ToString() + "공격 이벤트가 없네??");
+            return 0.0f;
+        }
+        else if (evt.visionRange <= 0.0f)
+        {
+            Debug.LogError(mCurAni.ToString() + "Vistion Range가 0이네??");
+        }
+
+        return evt.visionRange;
+    }
+}
